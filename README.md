@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 
-NNEinFact is a general-purpose library for fitting any nonnegative tensor factorization expressible as an `einsum` contraction. By leveraging a majorization-minimization framework, it provides theoretically guaranteed convergence for a wide family of loss functions, including the $(\alpha, \beta)$-divergence.
+NNEinFact is a general-purpose library for fitting any nonnegative tensor factorization expressible as an `einsum` contraction. It implements a multiplicative update algorithm guaranteed to converge under a wide family of loss functions, including the $(\alpha, \beta)$-divergence.
 
 ### Key Features
 * **Modeling**: Fit CP, Tucker, Tensor-Train, or custom models using simple string notation.
