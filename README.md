@@ -1,13 +1,18 @@
 # NNEinFact
 **Near-Universal Multiplicative Updates for Nonnegative Einsum Factorization**
 
+<img width="1211" height="663" alt="Screenshot 2026-02-02 at 12 10 36 PM" src="https://github.com/user-attachments/assets/caf2577c-6acb-4172-abc7-b18efdbae7ad" />
+
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 
 NNEinFact is a general-purpose library for fitting any nonnegative tensor factorization expressible as an `einsum` contraction. By leveraging a majorization-minimization framework, it provides theoretically guaranteed convergence for a wide family of loss functions, including the $(\alpha, \beta)$-divergence.
 
 ### Key Features
 * **Modeling**: Fit CP, Tucker, Tensor-Train, or custom models using simple string notation.
-* **Loss Functions**: The current implementation supports any $(\alpha, \beta)$ divergence other than $$\alpha = 0, \beta \neq 1$$. Examples include Euclidean distance $$(\alpha=1.0, \beta =1.0$$, KL divergence $$(\alpha=1.0, \beta = 0.0$$, Hellinger distance $$(\alpha=\beta = 0.5)$$, among others. 
+* **Loss Functions**: The current implementation supports a
+ny $(\alpha, \beta)$ divergence other than $$\alpha = 0, \beta \neq 1$$. Examples include Euclidean distance $$(\alpha=1.0, \beta =1.0$$, KL divergence $$(\alpha=1.0, \beta = 0.0$$, Hellinger distance $$(\alpha=\beta = 0.5)$$, among others. 
 
 For faster training, we recommend leveraging GPUs whenever possible. 
 
