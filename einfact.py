@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import os
 from opt_einsum import contract,  contract_path
+
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 def swap(model_str: str, param_idx: int) -> str:
@@ -98,7 +99,7 @@ class NNEinFact:
             early_stopping (bool, optional): If True, enables early stopping based on validation loss.'''
         self.history = {'loss': [], 'heldout_loss': [], 'time': [], 'validation_loss': []}
 
-        
+
         if mask is not None:
             self.mask = mask
         else:
@@ -146,6 +147,7 @@ class NNEinFact:
         for i in range(max_iter):
             for param_idx, param in enumerate(self.P_params):
                 self.Y_hat = contract(self.model_str, *self.P_params, optimize=self.y_path).clamp(1e-10)
+                
                 A = Y_alpha*self.Y_hat**(self.beta-1)
                 B = self.Y_hat**(self.alpha + self.beta - 1)*self.mask
 
@@ -154,8 +156,8 @@ class NNEinFact:
                 
                 param.mul_(contract(self.einsum_str[param_idx], *einsum_terms1, optimize=self.contract_paths[param_idx])**gamma_ab)
                 param.div_(((contract(self.einsum_str[param_idx], *einsum_terms2, optimize=self.contract_paths[param_idx]))**gamma_ab).clamp(1e-10))
-            
-            torch.cuda.synchronize()
+            if self.device is not None and 'cuda' in str(device):
+                torch.cuda.synchronize()
             current_time = time.time() - start_time
             self.history['time'].append(current_time)
             with torch.no_grad():
