@@ -1,5 +1,5 @@
 # NNEinFact
-**Near-Universal Multiplicative Updates for Nonnegative Einsum Factorization**
+Source code for the paper **Near-Universal Multiplicative Updates for Nonnegative Einsum Factorization** by John Hood and Aaron Schein. 
 
 <img width="1211" height="663" alt="Screenshot 2026-02-02 at 12 10 36 PM" src="https://github.com/user-attachments/assets/caf2577c-6acb-4172-abc7-b18efdbae7ad" />
 
