@@ -14,7 +14,7 @@ NNEinFact is a general-purpose library for fitting any nonnegative tensor factor
 * **Loss Functions**: The current implementation supports a
 ny $(\alpha, \beta)$ divergence other than $$\alpha = 0, \beta \neq 1$$. Examples include Euclidean distance $$(\alpha=1.0, \beta =1.0$$, KL divergence $$(\alpha=1.0, \beta = 0.0$$, Hellinger distance $$(\alpha=\beta = 0.5)$$, among others. 
 
-For faster training, we recommend leveraging GPUs whenever possible. 
+For faster training, we recommend using GPUs when possible. 
 
 ### Quick Start
 ```python
@@ -23,10 +23,11 @@ from einfact import NNEinFact
 Y = np.load(...)
 
 shape_dict = {**dict(zip(model_str.split('->')[-1], Y.shape)), 'k': 6, 'r': 10}
-# Define a custom model: wk,hk,dk,ikr,jkr -> whdij
+# Define a custom model:
+model_str = 'wr,hr,dr,ikr,jkr -> whdij'
 model = NNEinFact(
-    model_str='wk,hk,dk,ikr,jkr->whdij',
-    alpha=0.5, beta=0.5, shape_dict=shape_dict, device='cuda'
+    model_str,alpha=0.5, beta=0.5,
+    shape_dict=shape_dict, device='cuda'
 )
 
 
