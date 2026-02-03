@@ -21,7 +21,12 @@ Y = np.load(...)
 
 shape_dict = {**dict(zip(model_str.split('->')[-1], Y.shape)), 'k': 6, 'r': 10}
 # Define a custom model:
-model_str = 'wr,hr,dr,ikr,jkr -> whdij'
+model_str = 'wr,hr,dr,ikr,jkr -> whdij' #custom model
+
+#model_str = 'wr,hr,dr,ir,jr->whdij' #CP
+#model_str = 'wa,hb,dc,if,je,abcfe->whdij' #Tucker (add 'a', 'b', 'c', 'f', 'e' to shape_dict)
+#model_str = 'wa,hab,dbc,icf,jf->whdij' #tensor-train (add 'a', 'b', 'c', 'f' to shape_dict)
+
 model = NNEinFact(
     model_str,alpha=0.5, beta=0.5,
     shape_dict=shape_dict, device='cuda'
