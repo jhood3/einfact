@@ -11,7 +11,7 @@ NNEinFact is a general-purpose library for fitting any nonnegative tensor factor
 * **Modeling**: Fit CP, Tucker, Tensor-Train, or custom models using simple string notation.
 * **Loss Functions**: The current implementation supports any $(\alpha, \beta)$ divergence other than $$\alpha = 0, \beta \neq 1$$. Examples include Euclidean distance $$(\alpha=1.0, \beta =1.0)$$, KL divergence $$(\alpha=1.0, \beta = 0.0)$$, Hellinger distance $$(\alpha=\beta = 0.5)$$, among others. 
 
-For faster training, we recommend using GPUs when possible. 
+For faster training, we recommend using GPUs when possible. If your data $$Y$$ contains exact zeros, use $$\alpha > 0$$.
 
 ### Quick Start
 ```python

@@ -84,6 +84,27 @@ class NNEinFact:
             term3 = (Y_hat ** (self.alpha + self.beta)) / (self.alpha * (self.alpha + self.beta))
             loss = torch.mean(term2 + term3 - term1)
         return loss
+
+    def prepare_masks(self, Y, mask=None):
+        assert isinstance(Y, np.ndarray), "Y must be a numpy.ndarray."
+        if mask is not None:
+            initial_mask_bool = torch.as_tensor(mask, device=self.device, dtype=torch.bool)
+        else:
+            initial_mask_bool = torch.ones(Y.shape, device=self.device, dtype=torch.bool)
+        
+        assert initial_mask_bool.shape == Y.shape, "Mask shape must match the shape of Y."
+
+        # Generate random validation set to evaluate early stopping
+        val_selector = torch.rand(initial_mask_bool.shape, device=self.device) < 0.05
+
+        # Create mutually exclusive boolean masks
+        self.val_mask_bool = initial_mask_bool & val_selector
+        self.mask_bool = initial_mask_bool & ~val_selector
+        self.heldout_mask_bool = ~initial_mask_bool
+
+        # Create float versions for computation
+        self.mask = self.mask_bool.to(torch.float32)
+        self.val_mask = self.val_mask_bool.to(torch.float32)
     
     def fit(self, Y,
               max_iter: int = 200,
@@ -99,24 +120,8 @@ class NNEinFact:
             early_stopping (bool, optional): If True, enables early stopping based on validation loss.'''
         self.history = {'loss': [], 'heldout_loss': [], 'time': [], 'validation_loss': []}
 
-
-        if mask is not None:
-            self.mask = mask
-        else:
-            self.mask = np.ones(Y.shape, dtype=bool)
-        assert self.mask.shape == Y.shape, "Mask shape must match the shape of Y."
-        assert isinstance(Y, np.ndarray), "Y must be a numpy.ndarray."
-
-        val_selector = np.random.rand(*self.mask.shape) < 0.05
-        self.val_mask = self.mask & val_selector #training set: mask = 
-        self.mask = self.mask & ~val_selector #training set: mask = 1
-        self.mask = torch.from_numpy(self.mask).to(device=self.device, dtype=torch.float32)
-        self.val_mask = torch.from_numpy(self.val_mask).to(device=self.device, dtype=torch.float32)
-        self.mask_bool = self.mask.bool()
-        self.val_mask_bool = self.val_mask.bool()
-        self.heldout_mask_bool = ~self.mask_bool & ~self.val_mask_bool
-
-        Y = torch.tensor(Y, device=self.device, dtype=torch.float32)
+        self.prepare_masks(Y, mask)
+        Y = torch.as_tensor(Y, device=self.device, dtype=torch.float32)
 
         self.history['loss'].append(self._calculate_ab_divergence(Y[self.mask_bool], self.Y_hat[self.mask_bool]).detach().cpu().numpy())
         self.history['validation_loss'].append(self._calculate_ab_divergence(Y[self.val_mask_bool], self.Y_hat[self.val_mask_bool]).detach().cpu().numpy())
@@ -144,55 +149,58 @@ class NNEinFact:
 
         consecutive_increases = 0
 
-        for i in range(max_iter):
-            for param_idx, param in enumerate(self.P_params):
-                self.Y_hat = contract(self.model_str, *self.P_params, optimize=self.y_path).clamp(1e-10)
-                
-                A = Y_alpha*self.Y_hat**(self.beta-1)
-                B = self.Y_hat**(self.alpha + self.beta - 1)*self.mask
+        with torch.no_grad():
+            for i in range(max_iter):
+                for param_idx, param in enumerate(self.P_params):
+                    self.Y_hat = contract(self.model_str, *self.P_params, optimize=self.y_path).clamp(1e-10)
+                    
+                    A = Y_alpha*self.Y_hat**(self.beta-1)
+                    B = self.Y_hat**(self.alpha + self.beta - 1)*self.mask
+                    others = self.P_params[:param_idx] + self.P_params[param_idx+1:]
+                    
+                    num = contract(self.einsum_str[param_idx], *others, A, optimize=self.contract_paths[param_idx])
+                    den = contract(self.einsum_str[param_idx], *others, B, optimize=self.contract_paths[param_idx]).clamp(1e-10)
 
-                einsum_terms1 = self.P_params[:param_idx] + self.P_params[param_idx+1:] + [A]
-                einsum_terms2 = self.P_params[:param_idx] + self.P_params[param_idx+1:] + [B]
-                
-                param.mul_(contract(self.einsum_str[param_idx], *einsum_terms1, optimize=self.contract_paths[param_idx])**gamma_ab)
-                param.div_(((contract(self.einsum_str[param_idx], *einsum_terms2, optimize=self.contract_paths[param_idx]))**gamma_ab).clamp(1e-10))
-            if self.device is not None and 'cuda' in str(device):
-                torch.cuda.synchronize()
-            current_time = time.time() - start_time
-            self.history['time'].append(current_time)
-            with torch.no_grad():
-                    self.history['loss'].append(self._calculate_ab_divergence(Y[self.mask_bool], self.Y_hat[self.mask_bool]).detach().cpu().numpy())
-                    self.history['validation_loss'].append(self._calculate_ab_divergence(Y[self.val_mask_bool], self.Y_hat[self.val_mask_bool]).detach().cpu().numpy())
-                    self.history['heldout_loss'].append(self._calculate_ab_divergence(Y[self.heldout_mask_bool], self.Y_hat[self.heldout_mask_bool]).detach().cpu().numpy())
-            assert self.history['loss'][-1] <= self.history['loss'][-2] + 1e-3, f'Training loss increased by {self.history["loss"][-1] - self.history["loss"][-2]}'
+                    ratio = (num/den).pow_(gamma_ab).clamp(max=1e10)
+                    param.mul_(ratio)
 
-            if verbose:
-                print(f"\n══════════ Iteration {i:03d} ══════════")
-                print(f"Elapsed Time     : {current_time:8.3f} s")
-                print(f"Training Loss     : {self.history['loss'][-1]:.6e}")
+                if self.device is not None and 'cuda' in str(device):
+                    torch.cuda.synchronize()
+                current_time = time.time() - start_time
+                
+                self.history['time'].append(current_time)
+                self.history['loss'].append(self._calculate_ab_divergence(Y[self.mask_bool], self.Y_hat[self.mask_bool]).detach().cpu().numpy())
+                self.history['validation_loss'].append(self._calculate_ab_divergence(Y[self.val_mask_bool], self.Y_hat[self.val_mask_bool]).detach().cpu().numpy())
+                self.history['heldout_loss'].append(self._calculate_ab_divergence(Y[self.heldout_mask_bool], self.Y_hat[self.heldout_mask_bool]).detach().cpu().numpy())
+                assert self.history['loss'][-1] <= self.history['loss'][-2] + 1e-3, f'Training loss increased by {self.history["loss"][-1] - self.history["loss"][-2]}'
+
+                if verbose:
+                    print(f"\n══════════ Iteration {i:03d} ══════════")
+                    print(f"Elapsed Time     : {current_time:8.3f} s")
+                    print(f"Training Loss     : {self.history['loss'][-1]:.6e}")
+                    if early_stopping:
+                        print(f"Validation Loss   : {self.history['validation_loss'][-1]:.6e}")
+                    if mask is not None:
+                        print(f"Held-out Loss     : {self.history['heldout_loss'][-1]:.6e}")
+                    print("═══════════════════════════════════════")
+
+                if len(self.history['loss']) > 100 and \
+                np.abs(self.history['loss'][-1] - self.history['loss'][-2]) < 1e-6:
+                    print("Convergence reached.")
+                    break
+
                 if early_stopping:
-                    print(f"Validation Loss   : {self.history['validation_loss'][-1]:.6e}")
-                if mask is not None:
-                    print(f"Held-out Loss     : {self.history['heldout_loss'][-1]:.6e}")
-                print("═══════════════════════════════════════")
-
-            if len(self.history['loss']) > 100 and \
-            np.abs(self.history['loss'][-1] - self.history['loss'][-2]) < 1e-6:
-                print("Convergence reached.")
-                break
-
-            if early_stopping:
-                if len(self.history['validation_loss']) >= 2:
-                    if self.history['validation_loss'][-1] > self.history['validation_loss'][-2]:
-                        consecutive_increases += 1
-                    else:
-                        consecutive_increases = 0
-                    if consecutive_increases >= 5:
-                        print("Early stopping.")
-                        break
+                    if len(self.history['validation_loss']) >= 2:
+                        if self.history['validation_loss'][-1] > self.history['validation_loss'][-2]:
+                            consecutive_increases += 1
+                        else:
+                            consecutive_increases = 0
+                        if consecutive_increases >= 5:
+                            print("Early stopping.")
+                            break
 
         return self.history
     
     def get_params(self):
-        """Returns the learned parameters as a list of numpy arrays."""
+        """Returns the fitted parameters as a list of numpy arrays."""
         return [param.detach().cpu().numpy() for param in self.P_params]
