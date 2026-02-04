@@ -1,5 +1,5 @@
 # NNEinFact
-Source code for the paper **Near-Universal Multiplicative Updates for Nonnegative Einsum Factorization** by John Hood and Aaron Schein. 
+Source code for the paper [Near-Universal Multiplicative Updates for Nonnegative Einsum Factorization](https://arxiv.org/abs/2602.02759) by John Hood and Aaron Schein. 
 
 NNEinFact is a general-purpose library for fitting any nonnegative tensor factorization expressible as an `einsum` contraction. It implements a multiplicative update algorithm guaranteed to converge under a wide family of loss functions, including the $(\alpha, \beta)$-divergence.
 
