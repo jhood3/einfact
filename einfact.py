@@ -77,7 +77,8 @@ class NNEinFact:
         elif self.alpha != 0 and self.beta == 0.0:
             loss = torch.sum(Y[Y > 0]**self.alpha * torch.log(Y[Y > 0]**self.alpha / Y_hat[Y > 0]**self.alpha))/Y.numel() + torch.mean(Y_hat**self.alpha - Y**self.alpha)
         elif self.alpha == 1.0 and self.beta == -1.0: #itakura-saito
-            loss = torch.mean((Y / Y_hat) - torch.sum(torch.log(Y[Y > 0] / Y_hat[Y > 0]) - 1)) / Y.numel() #don't include terms where Y == 0
+            mask = Y > 0
+            loss = torch.mean(Y[mask] / Y_hat[mask] - torch.log(Y[mask] / Y_hat[mask]) - 1) #don't include terms where Y == 0
         else:
             term1 = (Y ** self.alpha * Y_hat ** self.beta) / (self.alpha * self.beta)
             term2 = (Y ** (self.alpha + self.beta)) / (self.beta * (self.alpha + self.beta))
@@ -155,14 +156,18 @@ class NNEinFact:
                     self.Y_hat = contract(self.model_str, *self.P_params, optimize=self.y_path).clamp(1e-10)
                     
                     A = Y_alpha*self.Y_hat**(self.beta-1)
-                    B = self.Y_hat**(self.alpha + self.beta - 1)*self.mask
+                    B = self.Y_hat**(self.alpha + self.beta - 1)
+                    if self.alpha == 1.0 and self.beta == -1.0:
+                        B *= (Y_alpha > 0).float()
                     others = self.P_params[:param_idx] + self.P_params[param_idx+1:]
                     
                     num = contract(self.einsum_str[param_idx], *others, A, optimize=self.contract_paths[param_idx])
                     den = contract(self.einsum_str[param_idx], *others, B, optimize=self.contract_paths[param_idx]).clamp(1e-10)
 
-                    ratio = (num/den).pow_(gamma_ab).clamp(max=1e10)
+                    ratio = (num/den).pow_(gamma_ab).clamp(min=1e-10, max=1e10)
                     param.mul_(ratio)
+
+                #self.Y_hat = contract(self.model_str, *self.P_params, optimize=self.y_path).clamp(1e-10)
 
                 if self.device is not None and 'cuda' in str(device):
                     torch.cuda.synchronize()
