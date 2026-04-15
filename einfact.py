@@ -156,7 +156,8 @@ class NNEinFact:
                     self.Y_hat = contract(self.model_str, *self.P_params, optimize=self.y_path).clamp(1e-10)
                     
                     A = Y_alpha*self.Y_hat**(self.beta-1)
-                    B = self.Y_hat**(self.alpha + self.beta - 1)
+                    B = self.Y_hat**(self.alpha + self.beta - 1)*self.mask
+                    
                     if self.alpha == 1.0 and self.beta == -1.0:
                         B *= (Y_alpha > 0).float()
                     others = self.P_params[:param_idx] + self.P_params[param_idx+1:]
