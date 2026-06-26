@@ -96,7 +96,7 @@ class NNEinFact:
         assert initial_mask_bool.shape == Y.shape, "Mask shape must match the shape of Y."
 
         # Generate random validation set to evaluate early stopping
-        val_selector = torch.rand(initial_mask_bool.shape, device=self. < 0.05
+        val_selector = torch.rand(initial_mask_bool.shape, device=self.device) < 0.05
 
         # Create mutually exclusive boolean masks
         self.val_mask_bool = initial_mask_bool & val_selector
