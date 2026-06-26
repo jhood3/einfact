@@ -96,7 +96,7 @@ class NNEinFact:
         assert initial_mask_bool.shape == Y.shape, "Mask shape must match the shape of Y."
 
         # Generate random validation set to evaluate early stopping
-        val_selector = torch.rand(initial_mask_bool.shape, device=self.device) < 0.05
+        val_selector = torch.rand(initial_mask_bool.shape, device=self. < 0.05
 
         # Create mutually exclusive boolean masks
         self.val_mask_bool = initial_mask_bool & val_selector
@@ -170,7 +170,7 @@ class NNEinFact:
 
                 #self.Y_hat = contract(self.model_str, *self.P_params, optimize=self.y_path).clamp(1e-10)
 
-                if self.device is not None and 'cuda' in str(device):
+                if self.device is not None and 'cuda' in str(self.device):
                     torch.cuda.synchronize()
                 current_time = time.time() - start_time
                 
